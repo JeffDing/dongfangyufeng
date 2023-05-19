@@ -14,8 +14,8 @@ model:
   decoder_num_heads: 16
 
 data:
-  data_path: "./dataset/"
-  grid_path: "./dataset/grid.npy"
+  data_path: "./"
+  grid_path: "./grid.npy"
   train_size: 0.8
   finetune_size: 0.2
   train_num_list: [0]
