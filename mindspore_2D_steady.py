@@ -1,6 +1,7 @@
 import os
 import time
 import numpy as np
+import argparse
 
 os.system('pip install https://ms-release.obs.cn-north-4.myhuaweicloud.com/2.0.0rc1/MindScience/ascend/aarch64/mindflow_ascend-0.1.0rc1-py3-none-any.whl')
 
