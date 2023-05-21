@@ -32,6 +32,7 @@ parser.add_argument("--use_qizhi", type=bool, default=False, help="use openi")
 parser.add_argument("--use_zhisuan", type=bool, default=False, help="use modelarts")
 parser.add_argument("--multi_data_url", default= '/cache/data/', help="path to multi dataset")
 parser.add_argument("--data_path", default= '/cache/data/', help="path to dataset")
+parser.add_argument("--mindrecord_name", default= '/cache/data/', help="path to mindrecord")
 args = parser.parse_args()
 
 context.set_context(mode=context.GRAPH_MODE,
@@ -203,6 +204,9 @@ elif args.use_qizhi:
     DownloadFromQizhi(args.data_url, data_dir)
 
 mindrecord_name = "flowfield_000_050.mind"
+if args.use_qizhi or args.use_zhisuan:
+    mindrecord_name = args.mindrecord_name
+    
 dataset = ds.MindDataset(dataset_files=mindrecord_name, shuffle=False)
 dataset = dataset.project(["inputs", "labels"])
 print("samples:", dataset.get_dataset_size())
