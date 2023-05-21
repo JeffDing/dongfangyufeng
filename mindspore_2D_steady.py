@@ -22,6 +22,8 @@ from src import AirfoilDataset, calculate_eval_error, plot_u_and_cp, get_ckpt_su
 set_seed(0)
 np.random.seed(0)
 
+os.system('pip install https://ms-release.obs.cn-north-4.myhuaweicloud.com/2.0.0rc1/MindScience/ascend/aarch64/mindflow_ascend-0.1.0rc1-py3-none-any.whl')
+
 parser = argparse.ArgumentParser(description='Cycle GAN')
 parser.add_argument("--train_url", type=str, default='/cache/output/', help="train url")
 parser.add_argument("--data_url", type=str, default='/cache/data/', help="dataset url")
