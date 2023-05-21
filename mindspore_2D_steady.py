@@ -33,6 +33,8 @@ parser.add_argument("--use_zhisuan", type=bool, default=False, help="use modelar
 parser.add_argument("--multi_data_url", default= '/cache/data/', help="path to multi dataset")
 parser.add_argument("--data_path", default= '/cache/data/', help="path to dataset")
 parser.add_argument("--mindrecord_name", default= '/cache/data/', help="path to mindrecord")
+parser.add_argument("--grid_path", default= '/cache/data/', help="path to grid path")
+
 args = parser.parse_args()
 
 context.set_context(mode=context.GRAPH_MODE,
@@ -49,10 +51,12 @@ ckpt_params = config["ckpt"]
 eval_params = config["eval"]
 epoch_params = config["optimizer"]
 
+mindrecord_name = "flowfield_000_050.mind"   
+
 if args.use_zhisuan or args.use_qizhi:
     data_dir = '/cache/data'  
     train_dir = '/cache/train'
-    data_params['data_path']= args.data_path
+    mindrecord_name = args.mindrecord_name
 
 # download dataset
 if args.use_zhisuan:
@@ -203,9 +207,7 @@ elif args.use_qizhi:
         return
     DownloadFromQizhi(args.data_url, data_dir)
 
-mindrecord_name = "flowfield_000_050.mind"
-if args.use_qizhi or args.use_zhisuan:
-    mindrecord_name = args.mindrecord_name
+ 
     
 dataset = ds.MindDataset(dataset_files=mindrecord_name, shuffle=False)
 dataset = dataset.project(["inputs", "labels"])
@@ -227,7 +229,9 @@ data_group_size = data_params['data_group_size']
 dataset = AirfoilDataset(max_value_list, min_value_list, data_group_size)
 
 train_list, eval_list = data_params['train_num_list'], data_params['eval_num_list']
-train_dataset, eval_dataset = dataset.create_dataset(data_params['data_path'],
+
+if args.use_qizhi or args.use_zhisuan:
+    train_dataset, eval_dataset = dataset.create_dataset(args.data_path,
                                                      train_list,
                                                      eval_list,
                                                      batch_size=batch_size,
@@ -236,6 +240,16 @@ train_dataset, eval_dataset = dataset.create_dataset(data_params['data_path'],
                                                      train_size=data_params['train_size'],
                                                      finetune_size=data_params['finetune_size'],
                                                      drop_remainder=True)
+else:
+    train_dataset, eval_dataset = dataset.create_dataset(data_params['data_path'],
+                                                        train_list,
+                                                        eval_list,
+                                                        batch_size=batch_size,
+                                                        shuffle=False,
+                                                        mode="train",
+                                                        train_size=data_params['train_size'],
+                                                        finetune_size=data_params['finetune_size'],
+                                                        drop_remainder=True)
 
 if use_ascend:
     compute_dtype = mstype.float16
@@ -310,8 +324,12 @@ for epoch in range(1, 1+epochs):
     if epoch % eval_interval == 0:
         calculate_eval_error(eval_dataset, model)
     if epoch % plot_interval == 0:
-        plot_u_and_cp(eval_dataset=eval_dataset, model=model,
-                      grid_path=data_params['grid_path'], save_dir=summary_dir)
+        if args.use_qizhi or args.use_zhisuan:
+            plot_u_and_cp(eval_dataset=eval_dataset, model=model,
+                      grid_path=args.grid_path, save_dir=summary_dir)
+        else:
+            plot_u_and_cp(eval_dataset=eval_dataset, model=model,
+                        grid_path=data_params['grid_path'], save_dir=summary_dir)
     if epoch % save_ckt_interval == 0:
         ckpt_name = f"epoch_{epoch}.ckpt"
         save_checkpoint(model, os.path.join(ckpt_dir, ckpt_name))
