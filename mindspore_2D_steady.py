@@ -39,14 +39,14 @@ parser.add_argument("--mindrecord_name", default= '/cache/data/', help="path to 
 parser.add_argument("--grid_path", default= '/cache/data/', help="path to grid path")
 parser.add_argument("--pretrain_url", default= '/cache/data/', help="pretrain_url")
 parser.add_argument("--yaml_file", default= '/cache/code/msflow_test/config.yaml', help="pretrain_url")
-parser.add_argument("--platform", default= 'Ascend', help="device_target")
+parser.add_argument("--device_target", default= 'Ascend', help="device_target")
 
 
 args = parser.parse_args()
 
 context.set_context(mode=context.GRAPH_MODE,
                     save_graphs=False,
-                    device_target=args.platform,
+                    device_target=args.device_target,
                     device_id=0)
 use_ascend = context.get_context("device_target") == "Ascend"
 
@@ -119,7 +119,7 @@ if args.use_zhisuan:
         device_num = int(os.getenv('RANK_SIZE'))
         if device_num == 1:
             C2netMultiObsToEnv(multi_data_url,data_dir)
-            context.set_context(mode=context.GRAPH_MODE,device_target=args.platform)
+            context.set_context(mode=context.GRAPH_MODE,device_target=args.device_target)
         if device_num > 1:
             # set device_id and init for multi-card training
             context.set_context(mode=context.GRAPH_MODE, device_target=args.device_target, device_id=int(os.getenv('ASCEND_DEVICE_ID')))
