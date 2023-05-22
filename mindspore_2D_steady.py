@@ -38,13 +38,14 @@ parser.add_argument("--mindrecord_name", default= '/cache/data/', help="path to 
 parser.add_argument("--grid_path", default= '/cache/data/', help="path to grid path")
 parser.add_argument("--pretrain_url", default= '/cache/data/', help="pretrain_url")
 parser.add_argument("--yaml_file", default= '/cache/code/msflow_test/config.yaml', help="pretrain_url")
+parser.add_argument("--platform", default= 'Ascend', help="device_target")
 
 
 args = parser.parse_args()
 
 context.set_context(mode=context.GRAPH_MODE,
                     save_graphs=False,
-                    device_target="Ascend",
+                    device_target=args.platform,
                     device_id=0)
 use_ascend = context.get_context("device_target") == "Ascend"
 
