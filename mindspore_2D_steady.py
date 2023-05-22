@@ -39,6 +39,7 @@ parser.add_argument("--grid_path", default= '/cache/data/', help="path to grid p
 parser.add_argument("--pretrain_url", default= '/cache/data/', help="pretrain_url")
 parser.add_argument("--yaml_file", default= 'config.yaml', help="pretrain_url")
 parser.add_argument("--device_target", default= 'Ascend', help="device_target")
+parser.add_argument("--epochs", type=int, default= '3000', help="epochs")
 
 
 args = parser.parse_args()
@@ -57,7 +58,6 @@ model_params = config["model"]
 optimizer_params = config["optimizer"]
 ckpt_params = config["ckpt"]
 eval_params = config["eval"]
-epoch_params = config["optimizer"]
 
 mindrecord_name = "flowfield_000_050.mind"   
 
@@ -284,7 +284,7 @@ steps_per_epoch = train_dataset.get_dataset_size()
 wave_loss = WaveletTransformLoss(wave_level=optimizer_params['wave_level'])
 problem = SteadyFlowWithLoss(model, loss_fn=wave_loss)
 # prepare optimizer
-epochs = epoch_params["epochs"]
+epochs = args.epoch
 lr = get_warmup_cosine_annealing_lr(lr_init=optimizer_params["lr"],
                                     last_epoch=epochs,
                                     steps_per_epoch=steps_per_epoch,
