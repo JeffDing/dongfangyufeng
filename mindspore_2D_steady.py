@@ -36,6 +36,8 @@ parser.add_argument("--multi_data_url", default= '/cache/data/', help="path to m
 parser.add_argument("--data_path", default= '/cache/data/', help="path to dataset")
 parser.add_argument("--mindrecord_name", default= '/cache/data/', help="path to mindrecord")
 parser.add_argument("--grid_path", default= '/cache/data/', help="path to grid path")
+parser.add_argument("--pretrain_url", default= '/cache/data/', help="pretrain_url")
+
 
 args = parser.parse_args()
 
