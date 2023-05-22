@@ -49,7 +49,8 @@ context.set_context(mode=context.GRAPH_MODE,
                     device_id=0)
 use_ascend = context.get_context("device_target") == "Ascend"
 
-root_path = os.path.abspath(__file__)
+root_path = os.path.dirname(__file__)
+
 config = load_yaml_config(os.path.join(root_path,args.yaml_file))
 data_params = config["data"]
 model_params = config["model"]
