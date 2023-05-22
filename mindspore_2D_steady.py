@@ -37,7 +37,7 @@ parser.add_argument("--data_path", default= '/cache/data/', help="path to datase
 parser.add_argument("--mindrecord_name", default= '/cache/data/', help="path to mindrecord")
 parser.add_argument("--grid_path", default= '/cache/data/', help="path to grid path")
 parser.add_argument("--pretrain_url", default= '/cache/data/', help="pretrain_url")
-parser.add_argument("--yaml_file", default= '/cache/code/msflow_test/config.yaml', help="pretrain_url")
+parser.add_argument("--yaml_file", default= 'config.yaml', help="pretrain_url")
 parser.add_argument("--device_target", default= 'Ascend', help="device_target")
 
 
@@ -49,7 +49,8 @@ context.set_context(mode=context.GRAPH_MODE,
                     device_id=0)
 use_ascend = context.get_context("device_target") == "Ascend"
 
-config = load_yaml_config(args.yaml_file)
+root_path = os.getcwd()
+config = load_yaml_config(os.path.join(root_path,args.yaml_file))
 data_params = config["data"]
 model_params = config["model"]
 optimizer_params = config["optimizer"]
