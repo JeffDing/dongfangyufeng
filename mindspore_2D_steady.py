@@ -343,6 +343,6 @@ for epoch in range(1, 1+epochs):
         save_checkpoint(model, os.path.join(ckpt_dir, ckpt_name))
         print(f'{ckpt_name} save success')
         
-if args.use_zhisuan or use_qizhi:
+if args.use_zhisuan or args.use_qizhi:
     UploadToQizhi(ckpt_dir,args.train_url)
     UploadToQizhi(summary_dir,args.train_url)
