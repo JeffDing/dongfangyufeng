@@ -76,8 +76,6 @@ if args.use_qizhi:
         os.makedirs(data_dir)      
     if not os.path.exists(train_dir):
         os.makedirs(train_dir)
-    if not os.path.exists(pretrain_dir):
-        os.makedirs(pretrain_dir)
     DatasetToEnv(args.multi_data_url,data_dir)
 
 if args.use_zhisuan:
@@ -91,8 +89,6 @@ if args.use_zhisuan:
         os.makedirs(data_dir)      
     if not os.path.exists(train_dir):
         os.makedirs(train_dir)
-    if not os.path.exists(pretrain_dir):
-        os.makedirs(pretrain_dir)
     DatasetToEnv(args.multi_data_url,data_dir)
     
 dataset = ds.MindDataset(dataset_files=mindrecord_name, shuffle=False)
