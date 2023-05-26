@@ -141,7 +141,7 @@ if use_ascend:
 else:
     compute_dtype = mstype.float32
     
-class ARGS():
+class SWIN_ARGS():
     def init(self):
         super(self).__init__()
 
@@ -177,10 +177,10 @@ class ARGS():
     norm_layer=nn.LayerNorm 
     ape=False 
     patch_norm=True
-args = ARGS()
+args_swin = SWIN_ARGS()
 # x = mindspore.numpy.randn([2, 3, 192, 384])
 # x = x.reshape([2, 6, 192, 192])
-model = swin_tiny_patch4_window7_224(args)
+model = swin_tiny_patch4_window7_224(args_swin)
 model = mindspore.amp.auto_mixed_precision(model, amp_level="O2")
 
 '''
