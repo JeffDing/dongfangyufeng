@@ -3,8 +3,9 @@ import time
 import numpy as np
 import argparse
 
-os.system('pip install https://ms-release.obs.cn-north-4.myhuaweicloud.com/2.0.0rc1/MindScience/ascend/aarch64/mindflow_ascend-0.1.0rc1-py3-none-any.whl -i https://pypi.tuna.tsinghua.edu.cn/simple')
+os.system('pip install https://ms-release.obs.cn-north-4.myhuaweicloud.com/2.0.0rc1/MindScience/ascend/aarch64/mindflow_ascend-0.1.0rc1-py3-none-any.whl')
 
+import mindspore
 import mindspore.nn as nn
 import mindspore.ops as ops
 import mindspore.dataset as ds
@@ -54,7 +55,9 @@ use_ascend = context.get_context("device_target") == "Ascend"
 
 root_path = os.path.dirname(__file__)
 
-config = load_yaml_config(os.path.join(root_path,args.yaml_file))
+if args.use_qizhi or args.use_zhisuan:
+    config = load_yaml_config(os.path.join(root_path,args.yaml_file))
+config = load_yaml_config("config_swin.yaml")
 data_params = config["data"]
 model_params = config["model"]
 optimizer_params = config["optimizer"]

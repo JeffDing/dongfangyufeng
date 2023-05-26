@@ -1,5 +1,5 @@
 model:
-  name: "ViT"
+  name: "Swin"
   exp:
     input_dims: 3
   method: "exp"
