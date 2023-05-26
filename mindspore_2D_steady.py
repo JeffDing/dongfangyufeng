@@ -54,7 +54,8 @@ root_path = os.path.dirname(__file__)
 
 if args.use_qizhi or args.use_zhisuan:
     config = load_yaml_config(os.path.join(root_path,args.yaml_file))
-config = load_yaml_config("config.yaml")
+else:    
+    config = load_yaml_config("config.yaml")
 data_params = config["data"]
 model_params = config["model"]
 optimizer_params = config["optimizer"]
