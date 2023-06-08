@@ -61,11 +61,11 @@ Aiming at the technical difficulties mentioned above, we designed an AI model-ba
 ![img-1.png](images/img_1.png)
 
 When the airfoil geometry changes, the surface pressure distribution, flow field distribution, and error statistics predicted by AI and CFD are as follows:
-! [airfoil.gif](images/airfoil.gif)
+![airfoil.gif](images/airfoil.gif)
 
 When the angle of attack of the incoming flow changes, the surface pressure distribution, flow field distribution, and error statistics predicted by AI and CFD are as follows:
 
-! [aoa_var.gif](images/aoa_var.gif)
+![aoa_var.gif](images/aoa_var.gif)
 When the incoming Mach number changes, the surface pressure distribution, flow field distribution, and error statistics predicted by AI and CFD are as follows:
 
-! [Ma_var.gif](images/Ma_var.gif)
+![Ma_var.gif](images/Ma_var.gif)
