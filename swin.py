@@ -62,7 +62,7 @@ class DropPath(nn.Cell):
     def __init__(self, drop_prob, ndim):
         super(DropPath, self).__init__()
         # self.drop = nn.Dropout(p=drop_prob)
-        self.drop = nn.Dropout(1-drop_prob)
+        self.drop = nn.Dropout(keep_prob=1-drop_prob)
         shape = (1,) + (1,) * (ndim + 1)
         self.ndim = ndim
         self.mask = Tensor(np.ones(shape), dtype=mstype.float32)
@@ -128,9 +128,9 @@ def window_partition(x, window_size):
         windows: (num_windows*B, window_size, window_size, C)
     """
     B, H, W, C = x.shape
-    # print(f"B, H, W, C = x.shape:{B, H, W, C}")
+    print(f"B, H, W, C = x.shape:{B, H, W, C}")
     x = np.reshape(x, (B, H // window_size, window_size, W // window_size, window_size, C))
-    # print(f"after reshape:{x.shape}")
+    print(f"after reshape:{x.shape}")
     windows = x.transpose(0, 1, 3, 2, 4, 5).reshape(-1, window_size, window_size, C)
     return windows
 
@@ -142,6 +142,7 @@ class WindowPartitionConstruct(nn.Cell):
         super(WindowPartitionConstruct, self).__init__()
 
         self.window_size = window_size
+        self.reshape = P.Reshape()
 
     def construct(self, x):
         """
@@ -153,9 +154,13 @@ class WindowPartitionConstruct(nn.Cell):
             windows: (num_windows*B, window_size, window_size, C)
         """
         B, H, W, C = x.shape
+        print(f"B, H, W, C = x.shape:{B, H, W, C} window_size:{self.window_size}")
         x = P.Reshape()(x, (B, H // self.window_size, self.window_size, W // self.window_size, self.window_size, C))
+        # x = self.reshape(x, (B, H // self.window_size, self.window_size, W // self.window_size, self.window_size, C))
+        
         x = P.Transpose()(x, (0, 1, 3, 2, 4, 5))
         x = P.Reshape()(x, (B * H * W // (self.window_size ** 2), self.window_size, self.window_size, C))
+        # x = self.reshape(x, (B * H * W // (self.window_size ** 2), self.window_size, self.window_size, C))
 
         return x
 
@@ -218,6 +223,10 @@ class WindowAttention(nn.Cell):
         # self.proj_drop = nn.Dropout(p=proj_drop)
         self.proj_drop = nn.Dropout(keep_prob=(1-proj_drop))
         self.softmax = nn.Softmax(axis=-1)
+        
+        self.batchmatmul = ops.BatchMatMul()
+        
+        self.reshape = P.Reshape()
 
     def construct(self, x, mask=None):
         """
@@ -226,25 +235,31 @@ class WindowAttention(nn.Cell):
             mask: (0/-inf) mask with shape of (num_windows, Wh*Ww, Wh*Ww) or None
         """
         B_, N, C = x.shape
+        print(f"==kqv before q = ops.Reshape()(self.q(x), (B_, N, self.num_heads, C // self.num_heads)) * self.scale {x.shape}")
+        print(f"self.q(x):{self.q(x).shape} (B_, N, self.num_heads, C // self.num_heads):{(B_, N, self.num_heads, C // self.num_heads)}")
         q = ops.Reshape()(self.q(x), (B_, N, self.num_heads, C // self.num_heads)) * self.scale
+        print(f"after reshape q:{q.shape}")
         q = ops.Transpose()(q, (0, 2, 1, 3))
         k = ops.Reshape()(self.k(x), (B_, N, self.num_heads, C // self.num_heads))
         k = ops.Transpose()(k, (0, 2, 3, 1))
         v = ops.Reshape()(self.v(x), (B_, N, self.num_heads, C // self.num_heads))
         v = ops.Transpose()(v, (0, 2, 1, 3))
 
-        attn = ops.BatchMatMul()(q, k)
+        # attn = ops.BatchMatMul()(q, k)
+        attn = self.batchmatmul(q, k)
         attn = attn + self.relative_bias()
 
         if mask is not None:
             nW = mask.shape[1]
-            attn = P.Reshape()(attn, (B_ // nW, nW, self.num_heads, N, N,)) + mask
-            attn = P.Reshape()(attn, (-1, self.num_heads, N, N,))
+            attn = self.reshape(attn, (B_ // nW, nW, self.num_heads, N, N,)) + mask
+            attn = self.reshape(attn, (-1, self.num_heads, N, N,))
             attn = self.softmax(attn)
         else:
             attn = self.softmax(attn)
         attn = self.attn_drop(attn)
-        x = ops.Reshape()(ops.Transpose()(ops.BatchMatMul()(attn, v), (0, 2, 1, 3)), (B_, N, C))
+        # x = ops.Reshape()(ops.Transpose()(ops.BatchMatMul()(attn, v), (0, 2, 1, 3)), (B_, N, C))
+        x = ops.Reshape()(ops.Transpose()(self.batchmatmul(attn, v), (0, 2, 1, 3)), (B_, N, C))
+        
         x = self.proj(x)
         x = self.proj_drop(x)
         return x
@@ -278,9 +293,12 @@ class RelativeBias(nn.Cell):
         # self.index = Parameter(ops.one_hot(self.relative_position_index, self.depth, 1.0, 0.0), requires_grad=False)
         self.index = Parameter(ops.OneHot()(self.relative_position_index, self.depth, Tensor(1.0, mindspore.float32), Tensor(0.0, mindspore.float32)), requires_grad=False)
 
+        self.matmul = ops.MatMul()
+        self.reshape = P.Reshape()
     def construct(self, axis=0):
-        out = ops.MatMul()(self.index, self.relative_position_bias_table)
-        out = P.Reshape()(out, (self.window_size[0] * self.window_size[1],
+        # out = ops.MatMul()(self.index, self.relative_position_bias_table)
+        out = self.matmul(self.index, self.relative_position_bias_table)
+        out = self.reshape(out, (self.window_size[0] * self.window_size[1],
                                 self.window_size[0] * self.window_size[1], -1))
         out = P.Transpose()(out, (2, 0, 1))
         out = ops.ExpandDims()(out, 0)
@@ -309,7 +327,7 @@ class SwinTransformerBlock(nn.Cell):
     def __init__(self, dim, input_resolution, num_heads, window_size=7, shift_size=0,
                  mlp_ratio=4., qkv_bias=True, qk_scale=None, drop=0., attn_drop=0., drop_path=0.,
                  act_layer=act_layers[argsnonlinearity], norm_layer=nn.LayerNorm):
-        super(SwinTransformerBlock, self).__init__()
+        super(SwinTransformerBlock, self).__init__(auto_prefix=True)
         self.dim = dim
         self.input_resolution = input_resolution
         self.num_heads = num_heads
@@ -365,6 +383,7 @@ class SwinTransformerBlock(nn.Cell):
 
         self.window_partition = WindowPartitionConstruct(self.window_size)
         self.window_reverse = WindowReverseConstruct()
+        self.reshape = P.Reshape()
 
     def construct(self, x):
         """construct function"""
@@ -373,7 +392,9 @@ class SwinTransformerBlock(nn.Cell):
 
         shortcut = x
         x = self.norm1(x)
-        x = P.Reshape()(x, (B, H, W, C,))
+        # print(f"before self.reshape{x.shape}")
+        x = self.reshape(x, (B, H, W, C,))
+        # print(f"after self.reshape{x.shape}")
 
         # cyclic shift
         if self.shift_size > 0:
@@ -390,7 +411,7 @@ class SwinTransformerBlock(nn.Cell):
         attn_windows = self.attn(x_windows, mask=self.attn_mask)  # nW*B, window_size*window_size, C
 
         # merge windows
-        attn_windows = P.Reshape()(attn_windows, (-1, self.window_size, self.window_size, C,))
+        attn_windows = self.reshape(attn_windows, (-1, self.window_size, self.window_size, C,))
         shifted_x = self.window_reverse(attn_windows, self.window_size, H, W)  # B H' W' C
 
         # reverse cyclic shift
@@ -399,7 +420,7 @@ class SwinTransformerBlock(nn.Cell):
         else:
             x = shifted_x
 
-        x = P.Reshape()(x, (B, H * W, C,))
+        x = self.reshape(x, (B, H * W, C,))
 
         # FFN
         x = shortcut + self.drop_path(x)
@@ -446,16 +467,18 @@ class PatchMerging(nn.Cell):
         self.H_2, self.W_2 = self.H // 2, self.W // 2
         self.H2W2 = int(self.H * self.W // 4)
         self.dim_mul_4 = int(dim * 4)
-        self.H2W2 = int(self.H * self.W // 4)
+        # self.H2W2 = int(self.H * self.W // 4)
+        
+        self.reshape = P.Reshape()
 
     def construct(self, x):
         """
         x: B, H*W, C
         """
         B = x.shape[0]
-        x = P.Reshape()(x, (B, self.H_2, 2, self.W_2, 2, self.dim))
+        x = self.reshape(x, (B, self.H_2, 2, self.W_2, 2, self.dim))
         x = P.Transpose()(x, (0, 1, 3, 4, 2, 5))
-        x = P.Reshape()(x, (B, self.H2W2, self.dim_mul_4))
+        x = self.reshape(x, (B, self.H2W2, self.dim_mul_4))
         x = self.norm(x)
         x = self.reduction(x)
 
@@ -464,7 +487,58 @@ class PatchMerging(nn.Cell):
     def extra_repr(self) -> str:
         return f"input_resolution={self.input_resolution}, dim={self.dim}"
 
+# 参考飞桨和Tensorflow的相关代码写的Mindspore PatchSplitting代码。
+class PatchSplitting(nn.Cell):
+    """ Patch Merging Layer.
 
+    Args:
+        input_resolution (tuple[int]): Resolution of input feature.
+        dim (int): Number of input channels.
+        norm_layer (nn.Module, optional): Normalization layer.  Default: nn.LayerNorm
+    """
+
+    def __init__(self, input_resolution, dim, norm_layer=nn.LayerNorm):
+        super().__init__()
+        self.input_resolution = input_resolution
+        self.dim = dim[0] if isinstance(dim, tuple) and len(dim) == 1 else dim
+        # Default False
+        self.reduction = nn.Dense(in_channels=1 * dim, out_channels=2 * dim, has_bias=False)
+        self.norm = norm_layer([dim * 2,])
+        self.H, self.W = self.input_resolution
+        self.H_2, self.W_2 = self.H * 2, self.W * 2
+        self.H2W2 = int(self.H * self.W * 4)
+        self.dim_mul_2 = int(dim // 2)
+        # self.H2W2 = int(self.H * self.W // 4)
+        
+        self.reshape = P.Reshape()
+        self.depth_to_space = ops.DepthToSpace(block_size=2)
+        # self.space_to_depth = ops.SpaceToDepth(block_size=2)
+
+    def construct(self, x):
+        """
+        x: B, H*W, C
+        """
+        B = x.shape[0]
+        print(f"======PatchSplitting B = x.shape[0] x.shape:{x.shape} ")
+        x = self.reduction(x)
+        print(f"x = self.reduction(x) {x.shape}")
+        x = self.reshape(x, (B, self.H, self.W, self.dim*2))
+        print(f"after x = self.reshape(x, (B, self.H, self.W, self.dim*2)) {x.shape}")
+        # x = self.depth_to_space(x)
+        x = x.transpose([0, 3, 1, 2])
+        x = self.depth_to_space(x)
+        # x = self.space_to_depth(x)
+        x = x.transpose([0, 2, 3, 1])
+        print(f"x = self.depth_to_space(x) :{x.shape}")
+        x = self.reshape(x, (B, self.H2W2, self.dim_mul_2))
+        print(f"x = self.reshape(x, (B, self.H2W2, self.dim_mul_2)) :{x.shape}")
+        
+
+        return x
+
+    def extra_repr(self) -> str:
+        return f"input_resolution={self.input_resolution}, dim={self.dim}"
+    
 class BasicLayer(nn.Cell):
     """ A basic Swin Transformer layer for one stage.
 
@@ -488,7 +562,7 @@ class BasicLayer(nn.Cell):
                  mlp_ratio=4., qkv_bias=True, qk_scale=None, drop=0., attn_drop=0.,
                  drop_path=0., norm_layer=nn.LayerNorm, downsample=None):
 
-        super().__init__()
+        super().__init__(auto_prefix=True)
         self.dim = dim
         self.input_resolution = input_resolution
         self.depth = depth
@@ -524,6 +598,65 @@ class BasicLayer(nn.Cell):
     def extra_repr(self) -> str:
         return f"dim={self.dim}, input_resolution={self.input_resolution}, depth={self.depth}"
 
+# class BasicLayer_decode(nn.Cell):
+#     """ A basic Swin Transformer layer for one stage.
+
+#     Args:
+#         dim (int): Number of input channels.
+#         input_resolution (tuple[int]): Input resolution.
+#         depth (int): Number of blocks.
+#         num_heads (int): Number of attention heads.
+#         window_size (int): Local window size.
+#         mlp_ratio (float): Ratio of mlp hidden dim to embedding dim.
+#         qkv_bias (bool, optional): If True, add a learnable bias to query, key, value. Default: True
+#         qk_scale (float | None, optional): Override default qk scale of head_dim ** -0.5 if set.
+#         drop (float, optional): Dropout rate. Default: 0.0
+#         attn_drop (float, optional): Attention dropout rate. Default: 0.0
+#         drop_path (float | tuple[float], optional): Stochastic depth rate. Default: 0.0
+#         norm_layer (nn.Cell, optional): Normalization layer. Default: nn.LayerNorm
+#         downsample (nn.Cell | None, optional): Downsample layer at the end of the layer. Default: None
+#     """
+
+#     def __init__(self, dim, input_resolution, depth, num_heads, window_size,
+#                  mlp_ratio=4., qkv_bias=True, qk_scale=None, drop=0., attn_drop=0.,
+#                  drop_path=0., norm_layer=nn.LayerNorm, downsample=None):
+
+#         super().__init__()
+#         self.dim = dim
+#         self.input_resolution = input_resolution
+#         self.depth = depth
+
+#         # build blocks
+#         self.blocks = nn.CellList([
+#             SwinTransformerBlock(dim=dim, input_resolution=input_resolution,
+#                                  num_heads=num_heads, window_size=window_size,
+#                                  shift_size=0 if (i % 2 == 0) else window_size // 2,  # TODO: 这里window_size//2的时候特别慢
+#                                  mlp_ratio=mlp_ratio,
+#                                  qkv_bias=qkv_bias, qk_scale=qk_scale,
+#                                  drop=drop, attn_drop=attn_drop,
+#                                  drop_path=drop_path[i] if isinstance(drop_path, list) else drop_path,
+#                                  norm_layer=norm_layer)
+#             for i in range(depth)])
+
+#         # patch merging layer
+#         if downsample is not None:
+#             self.downsample = downsample(input_resolution, dim=dim, norm_layer=norm_layer)
+#         else:
+#             self.downsample = None
+
+#     def construct(self, x):
+#         """construct"""
+#         for blk in self.blocks:
+#             x = blk(x)
+#             # print(f"for blk in self.blocks x.shape:{x.shape}")
+#         # print("self.downsample is not None:", self.downsample)
+#         if self.downsample is not None:
+#             x = self.downsample(x)
+#         return x
+
+#     def extra_repr(self) -> str:
+#         return f"dim={self.dim}, input_resolution={self.input_resolution}, depth={self.depth}"
+
 
 class PatchEmbed(nn.Cell):
     """ Image to Patch Embedding
@@ -536,9 +669,9 @@ class PatchEmbed(nn.Cell):
         norm_layer (nn.Cell, optional): Normalization layer. Default: None
     """
 
-    def __init__(self, image_size=224, patch_size=4, in_chans=3, embed_dim=96, norm_layer=None):
+    def __init__(self, image_size=(224, 224), patch_size=4, in_chans=3, embed_dim=96, norm_layer=None):
         super().__init__()
-        image_size = to_2tuple(image_size)
+        # image_size = to_2tuple(image_size)
         patch_size = to_2tuple(patch_size)
         patches_resolution = [image_size[0] // patch_size[0], image_size[1] // patch_size[1]]
         self.image_size = image_size
@@ -570,7 +703,59 @@ class PatchEmbed(nn.Cell):
             x = self.norm(x)
         return x
 
+# add PatchUnEmbed 参考自飞桨swint代码
+class PatchUnEmbed(nn.Cell):
+    """ Image to Patch Embedding
 
+    Args:
+        image_size (int): Image size.  Default: 224.
+        patch_size (int): Patch token size. Default: 4.
+        in_chans (int): Number of input image channels. Default: 3.
+        embed_dim (int): Number of linear projection output channels. Default: 96.
+        norm_layer (nn.Cell, optional): Normalization layer. Default: None
+    """
+
+    def __init__(self, image_size=(224, 224), patch_size=4, in_chans=3, embed_dim=96, norm_layer=None):
+        super().__init__()
+        patch_size = to_2tuple(patch_size)
+        patches_resolution = [
+            image_size[0] // patch_size[0], image_size[1] // patch_size[1]
+        ]
+        self.image_size = image_size
+        
+        self.patch_size = patch_size
+        self.patches_resolution = patches_resolution
+        print("self.patches_resolution", self.patches_resolution)
+        self.num_patches = patches_resolution[0] * patches_resolution[1]
+        print("self.num_patches", self.num_patches)
+        # self.num_patchs = patches_resolution[0]
+        self.in_chans = in_chans
+        self.embed_dim = embed_dim
+
+        self.proj = nn.Conv2dTranspose(
+            embed_dim, in_chans, kernel_size=patch_size, stride=patch_size)
+        if norm_layer is not None:
+            # if isinstance(embed_dim, int):
+            #     embed_dim = (embed_dim,)
+            self.norm = norm_layer(in_chans, epsilon=1e-5)
+        else:
+            self.norm = None
+            
+    def construct(self, x):
+        """docstring"""
+        B, L, C = x.shape
+        print(x.shape, L, self.num_patches)
+        assert L == self.num_patches
+        # x = x.transpose([0, 2, 1]).reshape([B, C, self.patches_resolution[0], self.patches_resolution[1]])  # B Ph*Pw C
+        x = ops.Transpose()(x,(0, 2, 1))
+        x = x.reshape([B, C, self.patches_resolution[0], self.patches_resolution[1]])  # B Ph*Pw C
+        
+        x = self.proj(x)
+        if self.norm is not None:
+            x = self.norm(x)
+        return x
+
+# 加入decoder_layers   
 class SwinTransformer(nn.Cell):
     """ Swin Transformer
         A Pynp impl of : `Swin Transformer: Hierarchical Vision Transformer using Shifted Windows`  -
@@ -596,20 +781,21 @@ class SwinTransformer(nn.Cell):
         patch_norm (bool): If True, add normalization after patch embedding. Default: True
     """
 
-    def __init__(self, image_size=224, patch_size=4, in_chans=3, num_classes=1000,
+    def __init__(self, image_size=(224, 224), patch_size=4, in_chans=3,
                  embed_dim=96, depths=None, num_heads=None, window_size=7,
                  mlp_ratio=4., qkv_bias=True, qk_scale=None,
                  drop_rate=0., attn_drop_rate=0., drop_path_rate=0.1,
                  norm_layer=nn.LayerNorm, ape=False, patch_norm=True):
         super().__init__()
 
-        self.num_classes = num_classes
+        self.image_size = image_size
         self.num_layers = len(depths)
         self.embed_dim = embed_dim
         self.ape = ape
         self.patch_norm = patch_norm
         self.num_features = int(embed_dim * 2 ** (self.num_layers - 1))
         self.mlp_ratio = mlp_ratio
+        self.patch_size =patch_size
 
         # split image into non-overlapping patches
         self.patch_embed = PatchEmbed(
@@ -633,6 +819,9 @@ class SwinTransformer(nn.Cell):
         # build layers
         self.layers = nn.CellList()
         for i_layer in range(self.num_layers):
+            print("==i_layer", int(embed_dim * 2 ** i_layer), (patches_resolution[0] // (2 ** i_layer),
+                                  patches_resolution[1] // (2 ** i_layer)), depths[i_layer])
+            # print(f"==Swin 传入 encoder layer num_heads:{num_heads[i_layer]}")
             layer = BasicLayer(dim=int(embed_dim * 2 ** i_layer),
                                input_resolution=(patches_resolution[0] // (2 ** i_layer),
                                                  patches_resolution[1] // (2 ** i_layer)),
@@ -643,7 +832,7 @@ class SwinTransformer(nn.Cell):
                                qkv_bias=qkv_bias, qk_scale=qk_scale,
                                drop=drop_rate, attn_drop=attn_drop_rate,
                                drop_path=dpr[sum(depths[:i_layer]):sum(depths[:i_layer + 1])],
-                               norm_layer=norm_layer,
+                               norm_layer=norm_layer,  # norm_layer
                                downsample=PatchMerging if (i_layer < self.num_layers - 1) else None
                                # downsample=PatchMerging if (i_layer < self.num_layers - 2) else None
                                # downsample = None
@@ -651,10 +840,39 @@ class SwinTransformer(nn.Cell):
                                
             self.layers.append(layer)
 
+        # self.decoder_layers = nn.CellList()
+        for i_layer in range(self.num_layers):
+            # print(f"==Swin 传入 decoder layer num_heads:{num_heads[i_layer]}")
+            layer = BasicLayer(
+                dim=int(embed_dim * 2 ** (self.num_layers - i_layer - 1)),
+                input_resolution=(patches_resolution[0] // (2 ** (self.num_layers - i_layer - 1)),
+                                  patches_resolution[1] // (2 ** (self.num_layers - i_layer - 1))),
+                depth=list(reversed(depths))[i_layer],
+                num_heads=list(reversed(num_heads))[i_layer],
+                window_size=window_size,
+                mlp_ratio=self.mlp_ratio,
+                qkv_bias=qkv_bias,
+                qk_scale=qk_scale,
+                drop=drop_rate,
+                attn_drop=attn_drop_rate,
+                drop_path=dpr[sum(list(reversed(depths))[:i_layer]):sum(list(reversed(depths))[:i_layer + 1])],
+                norm_layer=norm_layer,  # norm_layer
+                downsample=PatchSplitting if (i_layer < self.num_layers - 1) else None,
+                )
+            # self.decoder_layers.append(layer)
+            self.layers.append(layer)
+        
+        self.patch_unembed = PatchUnEmbed(
+            image_size=image_size,
+            patch_size=patch_size,
+            in_chans=in_chans,
+            embed_dim=embed_dim,
+            norm_layer=None)
+        
         self.norm = norm_layer([self.num_features,], epsilon=1e-5)
-        self.avgpool = P.ReduceMean(keep_dims=False)
-        self.head = nn.Dense(in_channels=self.num_features,
-                             out_channels=num_classes, has_bias=True) if num_classes > 0 else Identity()
+        # self.avgpool = P.ReduceMean(keep_dims=False)
+        # self.head = nn.Dense(in_channels=self.num_features,
+                             # out_channels=num_classes, has_bias=True) if num_classes > 0 else Identity()
         self.init_weights()
 
     def init_weights(self):
@@ -683,29 +901,80 @@ class SwinTransformer(nn.Cell):
         return {'relative_position_bias_table'}
 
     def forward_features(self, x):
-        x =  x.reshape([-1, 6, 192, 192])
+        # x =  x.reshape([-1, 6, 192, 192])
+        # _, _, tmpH, tmpW = x.shape
+        if x.shape[2:] != (224, 224):
+            x = ops.interpolate(x, sizes=(224, 224), mode='bilinear')  # 转为224大小，以便swin处理
         x = self.patch_embed(x)
-        # print(f"x = self.patch_embed(x) :{x.shape}")
+        print(f"x = self.patch_embed(x) :{x.shape}")
         if self.ape:
             x = x + self.absolute_pos_embed
         x = self.pos_drop(x)
-        # print(f"x = self.pos_drop(x) :{x.shape}")
+        print(f"after x = self.pos_drop(x) and before for layer x.shape:{x.shape}")
         for layer in self.layers:
             x = layer(x)
-            # print(f"x = layer(x) :{x.shape}")
-        x = self.norm(x)  # B L C
-        # print(f"x = self.norm(x):{x.shape}")
-        # x = self.avgpool(ops.Transpose()(x, (0, 2, 1)), 2)  # B C 1
-        # 最后做一次变换，输出[288, 768]
-        x = x.reshape([-1, 288, 768])
+            print(f"x = layer(x) :{x.shape}")
+        # for layer in self.decoder_layers:  # add for decode layers
+        #     x = layer(x)
+        #     print(f"for layer in self.decoder_layers :{x.shape}")
+        print(f"before unembed:{x.shape}")    
+        x = self.patch_unembed(x)
+        print(f"after unembed:{x.shape}") 
+        x = ops.interpolate(x, sizes=(192, 384), mode='bilinear')
+        print(f"x = ops.interpolate(x, sizes=(tmpH, tmpW), mode='bilinear'){x.shape}")
+        
+        # （n, 3, 192, 384) to （n, 288, 768）
+        # N,C,H,W = x.shape
+        # patch_size = 16
+        # print(N, C, H, W, patch_size, H//patch_size, W // patch_size)
+        # x = x.reshape([N, C, H//patch_size, patch_size,
+        #                     W // patch_size,
+        #                      patch_size])
+        # print(x.shape)
+        # # x = P.Transpose()(labels, (0, 1, 3, 2, 4, 5))
+        # x = P.Transpose()(x,(0, 2, 4, 3, 5, 1))
+        # print(x.shape)
+        # label_new_shape = x.shape
+        # x = x.reshape((N, label_new_shape[1] * label_new_shape[2],
+        #                                label_new_shape[3] * label_new_shape[4] * label_new_shape[5]))
+        
+        N,C,H,W = x.shape
+        patch_size = 16
+        print(N, C, H, W, patch_size, H//patch_size, W // patch_size)
+        x = x.reshape([N, C, H//patch_size, patch_size,\
+                            W // patch_size,\
+                             patch_size])
+        print(f"after reshape :{[N, C, H//patch_size, patch_size,W // patch_size,patch_size]} is :{x.shape}")
+        # x = P.Transpose()(labels, (0, 1, 3, 2, 4, 5))
+        x = P.Transpose()(x,(0, 2, 4, 3, 5, 1))
+        print(x.shape)
+        # x = np.reshape(label, (label_new_shape[0] * label_new_shape[1],
+        #                                label_new_shape[2] * label_new_shape[3] * label_new_shape[4]))
+        label_new_shape = x.shape
+        x = x.reshape((N, label_new_shape[1] * label_new_shape[2],
+                                       label_new_shape[3] * label_new_shape[4] * label_new_shape[5]))
+
+        
         return x
+    
+        # x = self.norm(x)  # B L C
+        # print(f"x = self.norm(x):{x.shape}")
+        # # x = self.avgpool(ops.Transpose()(x, (0, 2, 1)), 2)  # B C 1
+        # # 最后做一次变换，输出[288, 768]
+        # # x = x.reshape([-1, 288, 768])
+        # N, H, W = x.shape
+        # x = x.reshape(N, 1, H, W)
+        # # x = ops.interpolate(x, sizes=(288, 768), mode='bilinear')
+        # x = ops.interpolate(x, sizes=(288, 768), mode='bilinear')  # 转为224大小，以便swin处理
+        # x = x.reshape(N, 288, 768)
+        # return x
 
     def construct(self, x):
-        # print(f"def construct(self, x):{x.shape}")
+        print(f"def construct(self, x):{x.shape}")
         # # x = x.reshape([-1, 6, 192, 384])
         # print(f"x = x.reshape([-1, 6, 192, 384]):{x.shape}")
         x = self.forward_features(x)
-        # print(f"x = self.forward_features(x):{x.shape}")
+        print(f"x = self.forward_features(x):{x.shape}")
         # x = self.head(x)
         return x
 
@@ -728,7 +997,6 @@ def get_swintransformer(args):
     print(25 * "=" + "MODEL CONFIG" + 25 * "=")
     print(f"==> IMAGE_SIZE:         {image_size}")
     print(f"==> PATCH_SIZE:         {patch_size}")
-    print(f"==> NUM_CLASSES:        {args.num_classes}")
     print(f"==> EMBED_DIM:          {embed_dim}")
     print(f"==> NUM_HEADS:          {num_heads}")
     print(f"==> DEPTHS:             {depths}")
@@ -743,7 +1011,6 @@ def get_swintransformer(args):
     model = SwinTransformer(image_size=image_size,
                             patch_size=patch_size,
                             in_chans=in_chans,
-                            num_classes=args.num_classes,
                             embed_dim=embed_dim,
                             depths=depths,
                             num_heads=num_heads,
@@ -762,10 +1029,38 @@ def get_swintransformer(args):
 def swin_tiny_patch4_window7_224(args):
     """swin_tiny_patch4_window7_224"""
     return get_swintransformer(args)
+
+
+# import mindspore.ops.operations as P
+# # import mindspore.numpy as np
+# def patchify(label, patch_size=16):
+#     """
+#     Args:
+#         label (Union[int, float]): output dimension for each position.
+#         patch_size (int): The patch size of image. Default: ``16``.
+
+#     Returns:
+#         The numpy array with new shape of :math:`(H, W)`.
+#     """
+#     label_shape = label.shape
+#     print(label_shape)
+#     label = label.reshape((label_shape[0] // patch_size,
+#                                patch_size,
+#                                label_shape[1] // patch_size,
+#                                patch_size,
+#                                label_shape[2]))
+#     print(label.shape)
+#     label = ops.Transpose()(label, (0, 2, 1, 3, 4))
+#     label_new_shape = label.shape
+#     label = label.reshape((label_new_shape[0] * label_new_shape[1],
+#                                label_new_shape[2] * label_new_shape[3] * label_new_shape[4]))
+#     return label
+
 if __name__ == "__main__" :
     import mindspore 
     import mindspore as ms
     from mindspore import nn
+    # from swin import swin_tiny_patch4_window7_224
     
     ms.set_context(mode=ms.PYNATIVE_MODE, device_target="Ascend")
 
@@ -786,28 +1081,36 @@ if __name__ == "__main__" :
         # qk_scale = None
         # ape = args.ape
         # patch_norm = args.patch_norm
-        # image_size= (224, 224)  #  (192, 384)
-        image_size= (192, 192)
+        image_size= (224, 224)  #  (192, 384)
+        # image_size= (192, 192)
         patch_size=4 
-        in_channel=6 
-        num_classes=1000
-        embed_dim=192 
+        in_channel=3 
+        embed_dim=96 
         # depths=[ 2, 2, 6, 2 ] 
-        depths=[ 2, 6, ] 
-        num_heads=[ 4, 4, ]
-        window_size=6  # 7
+        depths=[2, 2, 18, 2]  
+        num_heads=[3, 6, 12, 24]
+        window_size=7  # 7
         mlp_ratio=4. 
         qkv_bias=True 
         qk_scale=None
-        drop_rate=0.1  # 0 
-        attn_drop_rate=0.1 # 0
+        drop_rate=0.  # 0 
+        attn_drop_rate=0. # 0
         drop_path_rate=0.1  # 0.1
         norm_layer=nn.LayerNorm 
         ape=False 
         patch_norm=True
     args = ARGS()
-    x = mindspore.numpy.randn([2, 3, 192, 384])
+    x = mindspore.numpy.randn([2, 3, 224, 224])
+    # x = mindspore.numpy.randn([2, 3, 192, 384])
     # x = x.reshape([2, 6, 192, 192])
     swinmodel = swin_tiny_patch4_window7_224(args)
+    y = swinmodel(x)
+    print(x.shape, y.shape)
+    
+    from mindspore import context
+    context.set_context(mode=context.GRAPH_MODE,
+                    save_graphs=False,
+                    device_target="Ascend",
+                    device_id=0)
     y = swinmodel(x)
     print(x.shape, y.shape)
