@@ -173,7 +173,11 @@ def train():
 
     model_name = "_".join([model_params['name'], method, "bs", str(batch_size)])
     # prepare loss
-    ckpt_dir, summary_dir = get_ckpt_summ_dir(ckpt_params, model_name, method)
+    if args.use_ascend or args.use_qizhi:
+        summary_dir = os.path.join(train_dir,"/summary_{method}", model_name)
+        ckpt_dir = os.path.join(summary_dir, "ckpt_dir") 
+    else:
+        ckpt_dir, summary_dir = get_ckpt_summ_dir(ckpt_params, model_name, method)
     wave_loss = WaveletTransformLoss(wave_level=optimizer_params['wave_level'])
     problem = SteadyFlowWithLoss(model, loss_fn=wave_loss)
     # prepare optimizer
@@ -223,7 +227,7 @@ def train():
             calculate_eval_error(eval_dataset, model)
         # plot
         if epoch % plot_interval == 0:
-            if use_ascend or use_qizhi:
+            if args.use_ascend or args.use_qizhi:
                 plot_u_and_cp(eval_dataset=eval_dataset, model=model,
                           grid_path=args.grid_path, save_dir=summary_dir)
             else:
@@ -237,7 +241,7 @@ def train():
             print(f'{ckpt_name} save success')
             
     if args.use_qizhi or args.use_zhisuan:
-        EnvToOpeni(ckpt_dir,args.train_url)
+        EnvToOpeni(train_dir,args.train_url)
 
 
 if __name__ == '__main__':
