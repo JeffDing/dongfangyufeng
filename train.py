@@ -173,7 +173,7 @@ def train():
 
     model_name = "_".join([model_params['name'], method, "bs", str(batch_size)])
     # prepare loss
-    if args.use_ascend or args.use_qizhi:
+    if args.use_zhisuan or args.use_qizhi:
         summary_dir = os.path.join(train_dir,"/summary_{method}", model_name)
         ckpt_dir = os.path.join(summary_dir, "ckpt_dir") 
     else:
@@ -227,7 +227,7 @@ def train():
             calculate_eval_error(eval_dataset, model)
         # plot
         if epoch % plot_interval == 0:
-            if args.use_ascend or args.use_qizhi:
+            if args.use_zhisuan or args.use_qizhi:
                 plot_u_and_cp(eval_dataset=eval_dataset, model=model,
                           grid_path=args.grid_path, save_dir=summary_dir)
             else:
