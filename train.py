@@ -104,7 +104,7 @@ def train():
     mode = args.train_mode
     print(f'train mode: {mode}')
     # read params
-    config = load_yaml_config(os.join(os.getcwd(),args.config_file_path))
+    config = load_yaml_config(os.path.join(os.getcwd(),args.config_file_path))
     data_params = config["data"]
     model_params = config["model"]
     optimizer_params = config["optimizer"]
