@@ -52,6 +52,16 @@ parser.add_argument('--device_target', type=str, default='Ascend', choices=["GPU
                     help="The target device to run, support 'Ascend', 'GPU'")
 parser.add_argument("--config_file_path", type=str, default="./config.yaml")
 parser.add_argument("--save_graphs_path", type=str, default="./graphs")
+
+#for openi argument
+parser.add_argument('--use_qizhi', type=bool, default=False, help='use qizhi')
+parser.add_argument('--use_zhisuan', type=bool, default=False, help='use zhisuan')
+parser.add_argument('--ckpt_url', type=str, default=None,help='load ckpt file path')
+parser.add_argument('--data_url', metavar='DIR', default='', help='path to dataset')
+parser.add_argument('--train_url', metavar='DIR', default='', help='save output')
+parser.add_argument('--multi_data_url',help='path to multi dataset', default= '/cache/data/')
+
+
 args = parser.parse_args()
 
 context.set_context(mode=context.GRAPH_MODE if args.context_mode.upper().startswith("GRAPH") else context.PYNATIVE_MODE,
@@ -61,6 +71,28 @@ context.set_context(mode=context.GRAPH_MODE if args.context_mode.upper().startsw
                     device_id=args.device_id)
 
 use_ascend = (args.device_target == "Ascend")
+
+if args.use_qizhi:
+    from openi import openi_multidataset_to_env as DatasetToEnv  
+    from openi import env_to_openi as EnvToOpeni
+    data_dir = '/cache/data/'  
+    train_dir = '/cache/output/'
+    if not os.path.exists(data_dir):
+        os.makedirs(data_dir)      
+    if not os.path.exists(train_dir):
+        os.makedirs(train_dir)
+    DatasetToEnv(args.multi_data_url,data_dir)
+
+if args.use_zhisuan:
+    from openi import c2net_multidataset_to_env as DatasetToEnv  
+    from openi import env_to_openi as EnvToOpeni
+    data_dir = '/cache/data/'  
+    train_dir = '/cache/output/'
+    if not os.path.exists(data_dir):
+        os.makedirs(data_dir)      
+    if not os.path.exists(train_dir):
+        os.makedirs(train_dir)
+    DatasetToEnv(args.multi_data_url,data_dir)
 
 
 def train():
@@ -88,7 +120,9 @@ def train():
         train_num_list, eval_num_list = None, data_params['eval_num_list']
     else:
         train_num_list, eval_num_list = data_params['train_num_list'], None
-    train_dataset, eval_dataset = dataset.create_dataset(data_params['data_path'],
+    
+    if args.use_qizhi or args.use_zhisuan:
+        train_dataset, eval_dataset = dataset.create_dataset(data_dir,
                                                          train_num_list,
                                                          eval_num_list,
                                                          batch_size=batch_size,
@@ -97,6 +131,17 @@ def train():
                                                          train_size=data_params['train_size'],
                                                          finetune_size=data_params['finetune_size'],
                                                          drop_remainder=True)
+    else:
+        train_dataset, eval_dataset = dataset.create_dataset(data_params['data_path'],
+                                                         train_num_list,
+                                                         eval_num_list,
+                                                         batch_size=batch_size,
+                                                         shuffle=False,
+                                                         mode=mode,
+                                                         train_size=data_params['train_size'],
+                                                         finetune_size=data_params['finetune_size'],
+                                                         drop_remainder=True)   
+    
     # prepare loss scaler
     if use_ascend:
         from mindspore.amp import DynamicLossScaler, all_finite
@@ -189,6 +234,9 @@ def train():
             ckpt_name = f"epoch_{epoch}.ckpt"
             save_checkpoint(model, os.path.join(ckpt_dir, ckpt_name))
             print(f'{ckpt_name} save success')
+            
+    if args.use_qizhi or args.use_zhisuan:
+        EnvToOpeni(ckpt_dir,args.train_url)
 
 
 if __name__ == '__main__':
