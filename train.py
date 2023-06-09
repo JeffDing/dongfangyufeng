@@ -128,7 +128,18 @@ def train():
     else:
         train_num_list, eval_num_list = data_params['train_num_list'], None
     
-    train_dataset, eval_dataset = dataset.create_dataset(data_params['data_path'],
+    if args.use_qizhi or args.use_zhisuan:
+        train_dataset, eval_dataset = dataset.create_dataset(args.data_path,
+                                                        train_num_list,
+                                                        eval_num_list,
+                                                        batch_size=batch_size,
+                                                        shuffle=False,
+                                                        mode=mode,
+                                                        train_size=data_params['train_size'],
+                                                        finetune_size=data_params['finetune_size'],
+                                                        drop_remainder=True)
+    else:
+        train_dataset, eval_dataset = dataset.create_dataset(data_params['data_path'],
                                                         train_num_list,
                                                         eval_num_list,
                                                         batch_size=batch_size,
