@@ -64,6 +64,7 @@ parser.add_argument('--data_url', metavar='DIR', default='', help='path to datas
 parser.add_argument('--train_url', metavar='DIR', default='', help='save output')
 parser.add_argument('--multi_data_url',help='path to multi dataset', default= '/cache/data/')
 parser.add_argument('--data_path', metavar='DIR', default='', help='path to dataset')
+parser.add_argument('--grid_path', metavar='DIR', default='', help='path to grid file')
 
 
 args = parser.parse_args()
@@ -235,7 +236,7 @@ def train():
         if epoch % plot_interval == 0:
             if use_ascend or use_qizhi:
                 plot_u_and_cp(eval_dataset=eval_dataset, model=model,
-                          grid_path=args.data_path, save_dir=summary_dir)
+                          grid_path=args.grid_path, save_dir=summary_dir)
             else:
                 plot_u_and_cp(eval_dataset=eval_dataset, model=model,
                           grid_path=data_params['grid_path'], save_dir=summary_dir)
