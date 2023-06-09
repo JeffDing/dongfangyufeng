@@ -233,8 +233,13 @@ def train():
             calculate_eval_error(eval_dataset, model)
         # plot
         if epoch % plot_interval == 0:
-            plot_u_and_cp(eval_dataset=eval_dataset, model=model,
+            if use_ascend or use_qizhi:
+                plot_u_and_cp(eval_dataset=eval_dataset, model=model,
+                          grid_path=args.data_path, save_dir=summary_dir)
+            else:
+                plot_u_and_cp(eval_dataset=eval_dataset, model=model,
                           grid_path=data_params['grid_path'], save_dir=summary_dir)
+            
         # save checkpoint
         if epoch % save_ckt_interval == 0:
             ckpt_name = f"epoch_{epoch}.ckpt"
