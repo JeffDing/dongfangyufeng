@@ -185,7 +185,7 @@ def train():
     model_name = "_".join([model_params['name'], method, "bs", str(batch_size)])
     # prepare loss
     if args.use_zhisuan or args.use_qizhi:
-        summary_dir = os.path.join(train_dir,"/summary_{method}", model_name)
+        summary_dir = os.path.join(f"{train_dir}/summary_{method}", model_name)
         ckpt_dir = os.path.join(summary_dir, "ckpt_dir") 
     else:
         ckpt_dir, summary_dir = get_ckpt_summ_dir(ckpt_params, model_name, method)
