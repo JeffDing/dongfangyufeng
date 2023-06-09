@@ -50,7 +50,7 @@ parser.add_argument('--train_mode', type=str, default='train', choices=["train",
 parser.add_argument('--device_id', type=int, default=6, help="ID of the target device")
 parser.add_argument('--device_target', type=str, default='Ascend', choices=["GPU", "Ascend"],
                     help="The target device to run, support 'Ascend', 'GPU'")
-parser.add_argument("--config_file_path", type=str, default="./config.yaml")
+parser.add_argument("--config_file_path", type=str, default="config.yaml")
 parser.add_argument("--save_graphs_path", type=str, default="./graphs")
 
 #for openi argument
@@ -60,6 +60,7 @@ parser.add_argument('--ckpt_url', type=str, default=None,help='load ckpt file pa
 parser.add_argument('--data_url', metavar='DIR', default='', help='path to dataset')
 parser.add_argument('--train_url', metavar='DIR', default='', help='save output')
 parser.add_argument('--multi_data_url',help='path to multi dataset', default= '/cache/data/')
+parser.add_argument('--data_path', metavar='DIR', default='', help='path to dataset')
 
 
 args = parser.parse_args()
@@ -100,7 +101,7 @@ def train():
     mode = args.train_mode
     print(f'train mode: {mode}')
     # read params
-    config = load_yaml_config(args.config_file_path)
+    config = load_yaml_config(os.join(os.getcwd(),args.config_file_path))
     data_params = config["data"]
     model_params = config["model"]
     optimizer_params = config["optimizer"]
@@ -122,7 +123,7 @@ def train():
         train_num_list, eval_num_list = data_params['train_num_list'], None
     
     if args.use_qizhi or args.use_zhisuan:
-        train_dataset, eval_dataset = dataset.create_dataset(data_dir,
+        train_dataset, eval_dataset = dataset.create_dataset(args.data_path,
                                                          train_num_list,
                                                          eval_num_list,
                                                          batch_size=batch_size,
