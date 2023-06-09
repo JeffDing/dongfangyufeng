@@ -103,8 +103,10 @@ def train():
     '''Train and evaluate the network'''
     mode = args.train_mode
     print(f'train mode: {mode}')
+    current_dir = os.path.abspath(__file__)
+    current_dir_parent = os.path.dirname(current_dir)
     # read params
-    config = load_yaml_config(os.path.join(os.getcwd(),args.config_file_path))
+    config = load_yaml_config(os.path.join(current_dir_parent,args.config_file_path))
     data_params = config["data"]
     model_params = config["model"]
     optimizer_params = config["optimizer"]
