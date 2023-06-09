@@ -187,6 +187,10 @@ def train():
     if args.use_zhisuan or args.use_qizhi:
         summary_dir = os.path.join(f"{train_dir}/summary_{method}", model_name)
         ckpt_dir = os.path.join(summary_dir, "ckpt_dir") 
+        if not os.path.exists(summary_dir):
+            os.makedirs(summary_dir)
+        if not os.path.exists(ckpt_dir):
+            os.makedirs(ckpt_dir)
     else:
         ckpt_dir, summary_dir = get_ckpt_summ_dir(ckpt_params, model_name, method)
     wave_loss = WaveletTransformLoss(wave_level=optimizer_params['wave_level'])
