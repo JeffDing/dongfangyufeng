@@ -33,9 +33,9 @@ optimizer:
   wave_level: 1
 
 ckpt:
-  summary_dir: "../summary_dir"
+  summary_dir: "./summary_dir"
   save_ckpt_interval: 1000
-  ckpt_path: "../summary_dir/ckpt_dir/Swin_exp_bs_32-1000_70.ckpt"
+  ckpt_path: "./summary_dir/ckpt_dir/Swin_exp_bs_32-1000_70.ckpt"
 
 eval:
   eval_interval: 10

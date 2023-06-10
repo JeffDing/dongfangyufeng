@@ -519,21 +519,11 @@ class PatchSplitting(nn.Cell):
         x: B, H*W, C
         """
         B = x.shape[0]
-        print(f"======PatchSplitting B = x.shape[0] x.shape:{x.shape} ")
         x = self.reduction(x)
-        print(f"x = self.reduction(x) {x.shape}")
-        x = self.reshape(x, (B, self.H, self.W, self.dim*2))
-        print(f"after x = self.reshape(x, (B, self.H, self.W, self.dim*2)) {x.shape}")
-        # x = self.depth_to_space(x)
-        x = x.transpose([0, 3, 1, 2])
-        x = self.depth_to_space(x)
-        # x = self.space_to_depth(x)
-        x = x.transpose([0, 2, 3, 1])
-        print(f"x = self.depth_to_space(x) :{x.shape}")
-        x = self.reshape(x, (B, self.H2W2, self.dim_mul_2))
-        print(f"x = self.reshape(x, (B, self.H2W2, self.dim_mul_2)) :{x.shape}")
-        
-
+        x = self.norm(x)
+        x = self.reshape(x,(B,self.H,self.W,2,2,self.dim_mul_2))
+        x = x.transpose([0,1,4,2,3,5])
+        x = self.reshape(x,(B,self.H2W2,self.dim_mul_2))
         return x
 
     def extra_repr(self) -> str:

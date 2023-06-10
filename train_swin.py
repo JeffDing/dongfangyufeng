@@ -31,11 +31,14 @@ from mindspore import save_checkpoint, jit, data_sink
 from mindspore.common import set_seed
 from mindspore.train.serialization import load_checkpoint, load_param_into_net
 
+from mindspore.amp import auto_mixed_precision
+
 from mindflow.common import get_warmup_cosine_annealing_lr
 from mindflow.pde import SteadyFlowWithLoss
 from mindflow.loss import WaveletTransformLoss
-from mindflow.cell import ViT
 from mindflow.utils import load_yaml_config
+
+from swin import swin_tiny_patch4_window7_224
 
 from src import AirfoilDataset, plot_u_and_cp, get_ckpt_summ_dir, plot_u_v_p, calculate_eval_error
 
@@ -59,7 +62,6 @@ parser.add_argument("--save_graphs_path", type=str, default="./graphs")
 parser.add_argument('--use_qizhi', type=bool, default=False, help='use qizhi')
 parser.add_argument('--use_zhisuan', type=bool, default=False, help='use zhisuan')
 parser.add_argument('--ckpt_url', type=str, default=None,help='load ckpt file path')
-parser.add_argument('--ckpt_path', type=str, default=None,help='load ckpt file path')
 parser.add_argument('--pretrain_url', type=str, default=None,help='load ckpt file path')
 parser.add_argument('--data_url', metavar='DIR', default='', help='path to dataset')
 parser.add_argument('--train_url', metavar='DIR', default='', help='save output')
@@ -178,12 +180,55 @@ def train():
                 decoder_num_heads=model_params['decoder_num_heads'],
                 compute_dtype=compute_dtype
                 )
+    
+    class Swin_ARGS():
+        def init(self):
+            super(self).__init__()
+
+        # image_size = args.image_size
+        # patch_size = args.patch_size
+        # in_chans = args.in_channel
+        # embed_dim = args.embed_dim
+        # depths = args.depths
+        # num_heads = args.num_heads
+        # window_size = args.window_size
+        # drop_path_rate = args.drop_path_rate
+        # mlp_ratio = args.mlp_ratio
+        # qkv_bias = True
+        # qk_scale = None
+        # ape = args.ape
+        # patch_norm = args.patch_norm
+        image_size= (224, 224)  #  (192, 384)
+        # image_size= (192, 192)
+        patch_size=4 
+        in_channel=3 
+        num_classes=1000
+        embed_dim=192 
+        # depths=[ 2, 2, 6, 2 ] 
+        # depths=[ 2, 6, ] 
+        depths=[2, 2, 18, 2]  
+        num_heads=[3, 6, 12, 24]
+        # num_heads=[ 4, 4, ]
+        window_size=7  # 7
+        mlp_ratio=4. 
+        qkv_bias=True 
+        qk_scale=None
+        drop_rate=0.1  # 0 
+        attn_drop_rate=0.1 # 0
+        drop_path_rate=0.1  # 0.1
+        norm_layer=nn.LayerNorm 
+        ape=False 
+        patch_norm=True
+    
+    swin_args = Swin_ARGS()
+    model = swin_tiny_patch4_window7_224(swin_args)
+    
+    #自动混合精度
+    model = auto_mixed_precision(model, 'O2')
+    
     if mode in ('finetune', 'eval'):
         # load pretrained model
-        if args.use_qizhi or args.use_zhisuan:
-            param_dict = load_checkpoint(args.ckpt_path)
-        else:
-            param_dict = load_checkpoint(ckpt_params['ckpt_path'])
+        param_dict = load_checkpoint(ckpt_params['ckpt_path'])
         load_param_into_net(model, param_dict)
         print("Load pre-trained model successfully")
         if mode == 'finetune':
