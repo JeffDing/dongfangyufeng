@@ -55,7 +55,7 @@ parser.add_argument('--train_mode', type=str, default='train', choices=["train",
 parser.add_argument('--device_id', type=int, default=6, help="ID of the target device")
 parser.add_argument('--device_target', type=str, default='Ascend', choices=["GPU", "Ascend"],
                     help="The target device to run, support 'Ascend', 'GPU'")
-parser.add_argument("--config_file_path", type=str, default="config.yaml")
+parser.add_argument("--config_file_path", type=str, default="config/config_swin.yaml")
 parser.add_argument("--save_graphs_path", type=str, default="./graphs")
 
 #for openi argument
