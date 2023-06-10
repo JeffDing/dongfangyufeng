@@ -1046,6 +1046,7 @@ def swin_tiny_patch4_window7_224(args):
 #                                label_new_shape[2] * label_new_shape[3] * label_new_shape[4]))
 #     return label
 
+'''debug code
 if __name__ == "__main__" :
     import mindspore 
     import mindspore as ms
@@ -1104,3 +1105,4 @@ if __name__ == "__main__" :
                     device_id=0)
     y = swinmodel(x)
     print(x.shape, y.shape)
+'''
