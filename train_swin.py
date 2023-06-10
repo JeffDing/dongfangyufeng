@@ -170,17 +170,6 @@ def train():
         compute_dtype = mstype.float32
 
     # model construction
-    model = ViT(in_channels=model_params[method]['input_dims'],
-                out_channels=model_params['output_dims'],
-                encoder_depths=model_params['encoder_depth'],
-                encoder_embed_dim=model_params['encoder_embed_dim'],
-                encoder_num_heads=model_params['encoder_num_heads'],
-                decoder_depths=model_params['decoder_depth'],
-                decoder_embed_dim=model_params['decoder_embed_dim'],
-                decoder_num_heads=model_params['decoder_num_heads'],
-                compute_dtype=compute_dtype
-                )
-    
     class Swin_ARGS():
         def init(self):
             super(self).__init__()
