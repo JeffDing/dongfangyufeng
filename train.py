@@ -273,7 +273,7 @@ def train():
             save_checkpoint(model, os.path.join(ckpt_dir, ckpt_name))
             print(f'{ckpt_name} save success')
             
-    if args.use_qizhi or args.use_zhisuan:
+    if args.use_qizhi:
         EnvToOpeni(train_dir,args.train_url)
 
 
