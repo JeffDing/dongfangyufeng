@@ -489,7 +489,7 @@ class PatchSplitting(nn.Cell):
         x = self.reduction(x)
         x = self.norm(x)
         x = self.reshape(x,(B,self.H,self.W,2,2,self.dim_mul_2))
-        x = x.transpose([0,1,4,2,3,5])
+        x = x.transpose([0,1,3,2,4,5])
         x = self.reshape(x,(B,self.H2W2,self.dim_mul_2))
         return x
 
