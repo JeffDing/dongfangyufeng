@@ -784,19 +784,14 @@ class SwinTransformer(nn.Cell):
         x = self.pos_drop(x)
         for layer in self.layers:
             x = layer(x)
-            print(f"x = layer(x) :{x.shape}")
         x = self.patch_unembed(x)
-        print(f"after unembed:{x.shape}") 
 
         N,C,H,W = x.shape
         patch_size = 16
-        print(N, C, H, W, patch_size, H//patch_size, W // patch_size)
         x = x.reshape([N, C, H//patch_size, patch_size,\
                             W // patch_size,\
                              patch_size])
-        print(f"after reshape :{[N, C, H//patch_size, patch_size,W // patch_size,patch_size]} is :{x.shape}")
         x = P.Transpose()(x,(0, 2, 4, 3, 5, 1))
-        print(x.shape)
         label_new_shape = x.shape
         x = x.reshape((N, label_new_shape[1] * label_new_shape[2],
                                        label_new_shape[3] * label_new_shape[4] * label_new_shape[5]))       
