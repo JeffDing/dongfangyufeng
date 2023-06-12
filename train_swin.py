@@ -177,8 +177,10 @@ def train():
         patch_size=4 
         in_channel=3 
         embed_dim=96 
-        depths=[2, 2, 18, 2]  
-        num_heads=[3, 6, 12, 24]
+        #depths=[2, 2, 18, 2]  
+        #num_heads=[3, 6, 12, 24]
+        depths=[2,6]
+        num_heads=[4,4]
         window_size=6  # 7
         mlp_ratio=4. 
         qkv_bias=True 
