@@ -173,19 +173,18 @@ def train():
     class Swin_ARGS():
         def init(self):
             super(self).__init__()
-        image_size= (3, 192, 384)  #  (192, 384)
+        image_size= (192, 384)
         patch_size=4 
         in_channel=3 
-        num_classes=1000
-        embed_dim=192 
+        embed_dim=96 
         depths=[2, 2, 18, 2]  
         num_heads=[3, 6, 12, 24]
-        window_size=7  # 7
+        window_size=6  # 7
         mlp_ratio=4. 
         qkv_bias=True 
         qk_scale=None
-        drop_rate=0.1  # 0 
-        attn_drop_rate=0.1 # 0
+        drop_rate=0.  # 0 
+        attn_drop_rate=0. # 0
         drop_path_rate=0.1  # 0.1
         norm_layer=nn.LayerNorm 
         ape=False 
