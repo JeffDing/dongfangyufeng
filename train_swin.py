@@ -57,6 +57,7 @@ parser.add_argument('--device_target', type=str, default='Ascend', choices=["GPU
                     help="The target device to run, support 'Ascend', 'GPU'")
 parser.add_argument("--config_file_path", type=str, default="config/config_swin.yaml")
 parser.add_argument("--save_graphs_path", type=str, default="./graphs")
+parser.add_argument('--epochs', type=int, default=1000, help="Epochs number")
 
 #for openi argument
 parser.add_argument('--use_qizhi', type=bool, default=False, help='use qizhi')
@@ -232,7 +233,7 @@ def train():
     problem = SteadyFlowWithLoss(model, loss_fn=wave_loss)
     # prepare optimizer
     steps_per_epoch = train_dataset.get_dataset_size()
-    epochs = optimizer_params["epochs"]
+    epochs = args.epochs
     lr = get_warmup_cosine_annealing_lr(lr_init=optimizer_params["lr"],
                                         last_epoch=epochs,
                                         steps_per_epoch=steps_per_epoch,
