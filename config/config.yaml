@@ -29,7 +29,7 @@ data:
 
 optimizer:
   epochs: 1000
-  lr: 0.0005
+  lr: 0.0001
   wave_level: 1
 
 ckpt:
