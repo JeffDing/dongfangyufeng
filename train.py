@@ -68,6 +68,10 @@ parser.add_argument('--multi_data_url',help='path to multi dataset', default= '/
 parser.add_argument('--data_path', metavar='DIR', default='', help='path to dataset')
 parser.add_argument('--grid_path', metavar='DIR', default='', help='path to grid file')
 
+parser.add_argument('--model_url', type=str, default='',help='load ckpt file path')
+parser.add_argument('--grampus_code_url', type=str, default='',help='load ckpt file path')
+parser.add_argument('--grampus_code_file_name', type=str, default='',help='load ckpt file path')
+
 
 args = parser.parse_args()
 
