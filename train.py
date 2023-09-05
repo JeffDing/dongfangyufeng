@@ -21,7 +21,7 @@ import time
 import argparse
 import numpy as np
 
-os.system('pip install https://ms-release.obs.cn-north-4.myhuaweicloud.com/2.0.0rc1/MindScience/ascend/aarch64/mindflow_ascend-0.1.0rc1-py3-none-any.whl -i https://pypi.tuna.tsinghua.edu.cn/simple')
+os.system('pip install mindflow_ascend')
 
 import mindspore.nn as nn
 import mindspore.ops as ops
